@@ -3,6 +3,10 @@
 
 ![App Screenshot](https://blog.devart.com/wp-content/uploads/2015/01/tunneling-dgram.png)
 
+## Demo
+
+![Gif](https://github.com/lightswisp/HTTPS-Tunnel/blob/main/demo.gif)
+
 
 ## Why do you even need to use it?
 
