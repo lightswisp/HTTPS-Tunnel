@@ -8,7 +8,8 @@ require "colorize"
 PROXY_PORT = 8080
 SERVER_HOST = "167.99.236.107"
 SERVER_PORT = 443
-SNI_HOST = "example.com" # SNI SPOOFED
+SNI_HOST = "example.com" # SNI SPOOFING
+TTL		 = 60 # 60 seconds
 
 def connect(host, port)
 	socket = TCPSocket.new(host, port)   
@@ -61,7 +62,7 @@ loop do
 			begin
 
 			     loop do
-                        fds = IO.select([connection, ssl], nil, nil)
+                        fds = IO.select([connection, ssl], nil, nil, TTL)
                         if fds[0].member?(connection)
                                 buf = connection.readpartial(1024 * 640)
                                 ssl.print(buf)
@@ -73,7 +74,10 @@ loop do
                 end
 
 			rescue
+				puts "Closing connection with #{request_host}:#{request_port}".red
 				ssl.close if ssl
+				connection.close if connection
+				Thread.exit
 			end
 
 	

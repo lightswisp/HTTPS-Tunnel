@@ -6,6 +6,7 @@ require 'colorize'
 PORT = 443
 CONN_OK = "HTTP/1.1 200 Established\r\nDate: #{Time.now}\r\nServer: Apache 2.0.1\r\n\r\n"
 CONN_FAIL = "HTTP/1.1 502 Bad Gateway\r\nDate: #{Time.now}\r\nServer: Apache 2.0.1\r\n\r\n"
+TTL = 60 # 60 seconds
 
 socket = TCPServer.new(PORT)
 sslContext = OpenSSL::SSL::SSLContext.new
@@ -30,22 +31,26 @@ def handle_client(connection)
                 return
         end
 
-        begin
-                loop do
-                        fds = IO.select([connection, endpoint_connection], nil, nil)
-                        if fds[0].member?(connection)
-                                buf = connection.readpartial(1024 * 640)
-                                endpoint_connection.print(buf)
-                        elsif fds[0].member?(endpoint_connection)
-                                buf = endpoint_connection.readpartial(1024*640)
-                                connection.print(buf)
-                        end
+    begin
+          loop do
+                  fds = IO.select([connection, endpoint_connection], nil, nil, TTL)
+                  if fds[0].member?(connection)
+                          buf = connection.readpartial(1024 * 640)
+                          endpoint_connection.print(buf)
+                  elsif fds[0].member?(endpoint_connection)
+                          buf = endpoint_connection.readpartial(1024*640)
+                          connection.print(buf)
+                  end
 
-                end
+          end
         rescue
                 puts "[*] Closing connection with #{endpoint_host}:#{endpoint_port}".red
                 endpoint_connection.close() if endpoint_connection
+                connection.close() if connection
+                Thread.exit
+     
         end
+
 end
 
 loop do
