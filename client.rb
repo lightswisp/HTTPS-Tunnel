@@ -14,9 +14,11 @@ TTL		 = 60 # 60 seconds
 def connect(host, port)
 	socket = TCPSocket.new(host, port)   
 	return nil if !socket
-	ssl = OpenSSL::SSL::SSLSocket.new(socket)
-	ssl.io.setsockopt(Socket::SOL_SOCKET, Socket::SO_KEEPALIVE, true)
-    ssl.io.setsockopt(Socket::SOL_TCP, Socket::TCP_NODELAY, true)
+	sslContext = OpenSSL::SSL::SSLContext.new
+	sslContext.min_version = OpenSSL::SSL::TLS1_3_VERSION
+	ssl = OpenSSL::SSL::SSLSocket.new(socket, sslContext)
+	#ssl.io.setsockopt(Socket::SOL_SOCKET, Socket::SO_KEEPALIVE, true)
+    #ssl.io.setsockopt(Socket::SOL_TCP, Socket::TCP_NODELAY, true)
 	ssl.hostname = SNI_HOST
 	ssl.sync_close = true
 	ssl.connect 
@@ -85,21 +87,3 @@ loop do
 			
 	}
 end
-
-
-
-# Thread.new {
-  # begin
-    # while lineIn = ssl.gets
-      # lineIn = lineIn.chomp
-      # $stdout.puts lineIn
-    # end
-  # rescue
-    # $stderr.puts "Error in input loop: " + $!
-  # end
-# }
-# 
-# while (lineOut = $stdin.gets)
-  # lineOut = lineOut.chomp
-  # ssl.puts lineOut
-# end
