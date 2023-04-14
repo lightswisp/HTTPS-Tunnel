@@ -7,7 +7,7 @@ PORT = 443
 SERVER_NAME = "Apache 2.0.1"
 CONN_OK = "HTTP/1.1 200 Established\r\nDate: #{Time.now}\r\nServer: #{SERVER_NAME}\r\n\r\n"
 CONN_FAIL = "HTTP/1.1 502 Bad Gateway\r\nDate: #{Time.now}\r\nServer: #{SERVER_NAME}\r\n\r\n"
-TTL = 60 # 60 seconds
+TTL = 15 # 15 seconds
 
 SSL = {
          :SSLClientCA=>nil,

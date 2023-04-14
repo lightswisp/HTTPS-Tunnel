@@ -5,11 +5,12 @@ require "thread"
 require "openssl"
 require "colorize"
 
-PROXY_PORT = 8080
+PROXY_PORT  = 8080
 SERVER_HOST = "167.99.236.107"
 SERVER_PORT = 443
-SNI_HOST = "example.com" # SNI SPOOFING
-TTL		 = 60 # 60 seconds
+SNI_HOST 	= "example.com" # SNI SPOOFING
+TTL		 	= 15 # 15 SEC
+MAX_BUFFER  = 1024 * 640 # 640KB
 
 def connect(host, port)
 	socket = TCPSocket.new(host, port)   
@@ -28,7 +29,7 @@ end
 def is_alive?(ssl, request_host, request_port)
 	ssl.puts("#{request_host}:#{request_port}")
 	begin
-	  response = ssl.readpartial(1024 * 640) 
+	  response = ssl.readpartial(MAX_BUFFER) 
 	rescue
 		return nil
 	end
@@ -42,7 +43,7 @@ puts "Listening on #{PROXY_PORT}"
 loop do
 	connection = proxy.accept
 	Thread.new {
-		request = connection.recv(1024 * 640)
+		request = connection.recv(MAX_BUFFER)
 		Thread.exit if request.size < 1 || request.empty? || request.nil?
 		request_head = request.split("\r\n")
 		request_method = request_head.first.split(" ")[0] # CONNECT, GET, POST
@@ -58,6 +59,7 @@ loop do
 				puts "[CONNECT] #{request_host}:#{request_port} is unavailable!".red
 				ssl.close
 				connection.close
+				Thread.exit
 			end
 			
 
@@ -66,10 +68,10 @@ loop do
 			     loop do
                         fds = IO.select([connection, ssl], nil, nil, TTL)
                         if fds[0].member?(connection)
-                                buf = connection.readpartial(1024 * 640)
+                                buf = connection.readpartial(MAX_BUFFER)
                                 ssl.print(buf)
                         elsif fds[0].member?(ssl)
-                                buf = ssl.readpartial(1024*640)
+                                buf = ssl.readpartial(MAX_BUFFER)
                                 connection.print(buf)
                         end
 
@@ -82,7 +84,9 @@ loop do
 				Thread.exit
 			end
 
-	
+		else
+			# GET, POST, PUT, DELETE, PATCH, ETC
+			
 		end
 			
 	}
