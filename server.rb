@@ -7,7 +7,7 @@ PORT = 443
 SERVER_NAME = "Apache 2.0.1"
 CONN_OK = "HTTP/1.1 200 Established\r\nDate: #{Time.now}\r\nServer: #{SERVER_NAME}\r\n\r\n"
 CONN_FAIL = "HTTP/1.1 502 Bad Gateway\r\nDate: #{Time.now}\r\nServer: #{SERVER_NAME}\r\n\r\n"
-TTL = 15 # 15 seconds
+TTL = 10 # 10 seconds
 
 SSL = {
          :SSLClientCA=>nil,
@@ -32,26 +32,32 @@ socket = TCPServer.new(PORT)
 sslContext = OpenSSL::SSL::SSLContext.new()
 sslContext.cert                         = OpenSSL::X509::Certificate.new(File.open("certificate.crt"))
 sslContext.key                          = OpenSSL::PKey::RSA.new(File.open("private.key"))
-sslContext.client_ca            		= SSL[:SSLClientCA]
-sslContext.extra_chain_cert 			= SSL[:SSLExtraChainCert]
+sslContext.client_ca                            = SSL[:SSLClientCA]
+sslContext.extra_chain_cert                     = SSL[:SSLExtraChainCert]
 sslContext.ca_file                      = SSL[:SSLCACertificateFile]
 sslContext.ca_path                      = SSL[:SSLCACertificatePath]
-sslContext.cert_store          			= SSL[:SSLCertificateStore]
-sslContext.tmp_dh_callback     			= SSL[:SSLTmpDhCallback]
-sslContext.verify_mode         			= SSL[:SSLVerifyClient]
-sslContext.verify_depth        			= SSL[:SSLVerifyDepth]
-sslContext.verify_callback     			= SSL[:SSLVerifyCallback]
+sslContext.cert_store                           = SSL[:SSLCertificateStore]
+sslContext.tmp_dh_callback                      = SSL[:SSLTmpDhCallback]
+sslContext.verify_mode                          = SSL[:SSLVerifyClient]
+sslContext.verify_depth                         = SSL[:SSLVerifyDepth]
+sslContext.verify_callback                      = SSL[:SSLVerifyCallback]
 # sslContext.servername_cb      = SSL[:SSLServerNameCallback] || proc { |args| ssl_servername_callback(*args) }
 sslContext.timeout                      = SSL[:SSLTimeout]
 sslContext.options                      = SSL[:SSLOptions]
 sslContext.ciphers                      = SSL[:SSLCiphers]
-sslContext.min_version          		= OpenSSL::SSL::TLS1_3_VERSION # *IMPORTANT* TLS_1.3 
-sslServer 								= OpenSSL::SSL::SSLServer.new(socket, sslContext) 
+sslContext.min_version                          = OpenSSL::SSL::TLS1_3_VERSION # *IMPORTANT* TLS_1.3 
+sslServer                                                               = OpenSSL::SSL::SSLServer.new(socket, sslContext) 
 puts "Listening on #{PORT}"
 
 def handle_client(connection)
         puts "[*] New connection #{connection.peeraddr[-1]}:#{connection.peeraddr[1]}"
         address = connection.gets
+        if address.match?(/GET/) # if it's not the address but the actual request from the client's browser
+                        response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n#{File.read('index.html')}"
+                        connection.puts(response)
+                        connection.close
+                        Thread.exit
+        end
         endpoint_host = address.split(":")[0]
         endpoint_port = address.split(":")[1].to_i
         puts "#{endpoint_host}:#{endpoint_port}".green

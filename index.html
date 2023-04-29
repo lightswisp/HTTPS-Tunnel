@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Hello there</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.2/css/bootstrap.min.css" integrity="sha512-k+THA9Jh1OyR6UjzivU/kSQ86cQOS0JFj5b5lIme3x1hXvJy0Nc+CzJqV7ojW8zvZa7RdMN62f1HyJLWQyu+dQ==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+      body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        position: relative;
+      }
+      .loading-bar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 6px;
+        width: 100%;
+        animation: loading-bar 2s ease infinite;
+      }
+      @keyframes loading-bar {
+        0% {
+          background-color: rgb(255, 0, 0);
+        }
+        25% {
+          background-color: rgb(255, 255, 0);
+        }
+        50% {
+          background-color: rgb(0, 255, 0);
+        }
+        75% {
+          background-color: rgb(0, 255, 255);
+        }
+        100% {
+          background-color: rgb(255, 0, 255);
+        }
+      }
+      p {
+        max-width: 600px;
+        text-align: center;
+        font-size: 24px;
+        line-height: 1.5;
+        color: #333;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="loading-bar"></div>
+    <div class="container">
+      <p class="my-5"><strong>Warning:</strong> You shouldn't be here, because this is a self-written hidden tunnel service that I'm running to obfuscate my traffic. But since you've found this page, here is your reward: <a href="https://t.me/testerzxd">https://t.me/testerzxd</a></p>
+    </div>
+  </body>
+</html>

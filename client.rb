@@ -9,20 +9,23 @@ PROXY_PORT  = 8080
 SERVER_HOST = "167.99.236.107"
 SERVER_PORT = 443
 SNI_HOST 	= "example.com" # SNI SPOOFING
-TTL		 	= 15 # 15 SEC
+TTL		 	= 10 # 10 SEC
 MAX_BUFFER  = 1024 * 640 # 640KB
 
 def connect(host, port)
-	socket = TCPSocket.new(host, port)   
-	return nil if !socket
-	sslContext = OpenSSL::SSL::SSLContext.new
-	sslContext.min_version = OpenSSL::SSL::TLS1_3_VERSION
-	ssl = OpenSSL::SSL::SSLSocket.new(socket, sslContext)
-	#ssl.io.setsockopt(Socket::SOL_SOCKET, Socket::SO_KEEPALIVE, true)
-    #ssl.io.setsockopt(Socket::SOL_TCP, Socket::TCP_NODELAY, true)
-	ssl.hostname = SNI_HOST
-	ssl.sync_close = true
-	ssl.connect 
+	begin
+		socket = TCPSocket.new(host, port)   
+		return nil if !socket
+		sslContext = OpenSSL::SSL::SSLContext.new
+		sslContext.min_version = OpenSSL::SSL::TLS1_3_VERSION
+		ssl = OpenSSL::SSL::SSLSocket.new(socket, sslContext)
+		ssl.hostname = SNI_HOST
+		ssl.sync_close = true
+		ssl.connect 
+	rescue
+		puts "TLS Tunnel Server seems to be down".red
+		return nil
+	end
 	return ssl
 end
 
