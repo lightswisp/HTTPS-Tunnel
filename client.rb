@@ -53,7 +53,7 @@ loop do
 
 		if request_method =~ /CONNECT/
 			ssl = connect(SERVER_HOST, SERVER_PORT)
-			return if !ssl
+			Thread.exit if !ssl
 			request_host, request_port = request_head.first.split(" ")[1].split(":")
 			if header = is_alive?(ssl, request_host, request_port)
 				puts "[CONNECT] #{request_host}:#{request_port}".green
