@@ -4,7 +4,7 @@ require 'openssl'
 require 'colorize'
 
 PORT = 443
-SERVER_NAME = "Apache 2.0.1"
+SERVER_NAME = "Rubinius/9.0.1"
 CONN_OK = "HTTP/1.1 200 Established\r\nDate: #{Time.now}\r\nServer: #{SERVER_NAME}\r\n\r\n"
 CONN_FAIL = "HTTP/1.1 502 Bad Gateway\r\nDate: #{Time.now}\r\nServer: #{SERVER_NAME}\r\n\r\n"
 TTL = 10 # 10 seconds
@@ -94,22 +94,21 @@ def handle_client(connection)
 end
 
 loop do
-                begin
-                connection = sslServer.accept
 
-                Thread.new{
-                        begin
-                        #connection.io.setsockopt(Socket::SOL_SOCKET, Socket::SO_KEEPALIVE, true) 
-                        #connection.io.setsockopt(Socket::SOL_TCP, Socket::TCP_NODELAY, true)
-                                handle_client(connection)
-                        rescue => e
-                                puts "[WARNING] Critical error #{e}, unknown communication method!".red
-                                connection.close if connection
-                                Thread.exit
-                        end
-                }
-        rescue OpenSSL::SSL::SSLError
-                        puts "[WARNING] Unknown protocol!".red
+        begin
+        connection = sslServer.accept
+
+        Thread.new{
+                begin
+                        handle_client(connection)
+                rescue => e
+                        puts "[WARNING] Critical error #{e}, unknown communication method!".red
+                        connection.close if connection
+                        Thread.current.exit
+                end
+        }
+        rescue => e
+                        puts "[WARNING] Unknown protocol!, #{e}".red
                         connection.close if connection
                         next
         end
