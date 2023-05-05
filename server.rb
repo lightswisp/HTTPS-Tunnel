@@ -56,10 +56,17 @@ def handle_client(connection)
                         response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n#{File.read('index.html')}"
                         connection.puts(response)
                         connection.close
+                        puts "[LOGS] Webpage is shown, closing the connection...".green
                         Thread.exit
         end
-        endpoint_host = address.split(":")[0]
-        endpoint_port = address.split(":")[1].to_i
+        begin
+	        endpoint_host = address.split(":")[0]
+	        endpoint_port = address.split(":")[1].to_i
+        rescue
+        	puts "[WARNING] Client doesn't know how to communicate with us!"
+        	connection.close if connection
+			Thread.exit
+        end
         puts "#{endpoint_host}:#{endpoint_port}".green
         endpoint_connection = TCPSocket.new(endpoint_host, endpoint_port)
         endpoint_connection.setsockopt(Socket::SOL_SOCKET, Socket::SO_KEEPALIVE, true) 
@@ -94,22 +101,17 @@ def handle_client(connection)
 end
 
 loop do
-
-        begin
-        connection = sslServer.accept
-
-        Thread.new{
-                begin
-                        handle_client(connection)
-                rescue => e
-                        puts "[WARNING] Critical error #{e}, unknown communication method!".red
-                        connection.close if connection
-                        Thread.current.exit
-                end
-        }
-        rescue => e
-                        puts "[WARNING] Unknown protocol!, #{e}".red
-                        connection.close if connection
-                        next
-        end
+		begin
+		Thread.new(sslServer.accept) do |connection|
+			begin
+	        	handle_client(connection)
+	        rescue => e
+	            puts "[WARNING] Critical error #{e}, unknown communication method!".red
+	            connection.close if connection
+	        end
+		end
+		rescue => e
+			puts "[WARNING] #{e}".red
+		end
+		
 end
