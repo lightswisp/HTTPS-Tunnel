@@ -46,7 +46,7 @@ def handle_client(connection)
         puts "[*] New connection #{connection.peeraddr[-1]}:#{connection.peeraddr[1]}"
         address = connection.gets
         if address.match?(/GET/) # if it's not the address but the actual request from the client's browser
-	        response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n#{File.read('index.html')}"
+	        response = "HTTP/1.1 200 OK\r\nServer: #{SERVER_NAME}\r\nContent-Type: text/html\r\n\r\n#{File.read('index.html')}"
 	        connection.puts(response)
 	        connection.close
 	        puts "[LOGS] Webpage is shown, closing the connection...".green
