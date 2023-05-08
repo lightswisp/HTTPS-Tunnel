@@ -97,22 +97,22 @@ end
 
 loop do
 	Thread.new(socket.accept) do |connection|
-	
+
 		begin
 			tls = OpenSSL::SSL::SSLSocket.new(connection, sslContext)
 			state = tls.state
 			Timeout.timeout(10) do
-				data  = tls.accept
-				handle_client(data) if data
+			  tls_connection  = tls.accept
+			  handle_client(tls_connection) if tls_connection
 			end
-			rescue Timeout::Error
-			  	if connection && state == "PINIT"
-				  connection.close 
-				end
-			rescue => e
-				puts "[ERROR] #{e}".red
+		rescue Timeout::Error
+			if connection && state == "PINIT"
+			  connection.close                
 			end
+		rescue => e
+			puts "[ERROR] #{e}".red
+			connection.close if connection
+		end
 
 	end
-
 end
