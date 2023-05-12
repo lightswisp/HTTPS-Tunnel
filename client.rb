@@ -1,16 +1,52 @@
 #!/usr/bin/ruby
 
-require "socket"
-require "thread"
-require "openssl"
-require "colorize"
+require 'socket'
+require 'thread'
+require 'openssl'
+require 'colorize'
+require 'optparse'
 
-PROXY_PORT  = 8080
-SERVER_HOST = "167.99.236.107"
-SERVER_PORT = 443
-SNI_HOST 	= "example.com" # SNI SPOOFING
-TTL		 	= 10 # 10 SEC
-MAX_BUFFER  = 1024 * 640 # 640KB
+ARGV << '-h' if ARGV.empty?
+
+options = {}
+OptionParser.new do |opts|
+	opts.banner = "TLS Tunnel Client\n\n".bold + "Usage: ./client.rb [options]"
+		opts.on("-v", "--verbose", "Run verbosely") do |v|
+		options[:verbose] = v
+	end
+
+	opts.on("-h", "--help", "Prints help") do
+		puts opts
+		exit
+	end
+
+	opts.on("-aADDR", "--address=ADDR", "TLS Tunnel Server address, example: ./client.rb --address example.com") do |addr|
+		options[:addr] = addr
+	end
+
+
+	opts.on("-pPORT", "--port=PORT", "Local port for listening, example: ./client.rb --address example.com --port 8080") do |port|
+		options[:port] = port
+	end
+
+	opts.on("-sSNI", "--sni=SNI", "TLS SNI extension spoof, default is [ example.com ] (optional)") do |sni|
+		options[:sni] = sni
+	end
+
+
+end.parse!
+
+if !options[:addr] || !options[:port] 
+	puts "Please include the server address and local port for listening, example: ./client.rb --address/-a example.com --port/-p 8080".red
+	exit
+end
+
+PROXY_PORT  = options[:port]
+SERVER_HOST = options[:addr]
+SERVER_PORT = 443 							 # Don't change this, because the server we are connecting to is supposed to immitate the real https connection
+SNI_HOST 	= options[:sni] || "example.com" # SNI SPOOFING
+TTL		 	= 10 							 # 10 SEC
+MAX_BUFFER  = 1024 * 640 					 # 640KB
 
 def connect(host, port)
 	begin
@@ -41,7 +77,7 @@ end
 
 
 proxy = TCPServer.new(PROXY_PORT)
-puts "Listening on #{PROXY_PORT}"
+puts "Listening on #{PROXY_PORT}".bold
 
 loop do
 	connection = proxy.accept
@@ -56,10 +92,10 @@ loop do
 			Thread.exit if !ssl
 			request_host, request_port = request_head.first.split(" ")[1].split(":")
 			if header = is_alive?(ssl, request_host, request_port)
-				puts "[CONNECT] #{request_host}:#{request_port}".green
+				puts "[CONNECT] #{request_host}:#{request_port}".green if options[:verbose]
 				connection.puts(header)
 			else
-				puts "[CONNECT] #{request_host}:#{request_port} is unavailable!".red
+				puts "[CONNECT] #{request_host}:#{request_port} is unavailable!".red if options[:verbose]
 				ssl.close
 				connection.close
 				Thread.exit
@@ -81,13 +117,15 @@ loop do
                 end
 
 			rescue
-				puts "Closing connection with #{request_host}:#{request_port}".red
+				puts "[INFO] Closing connection with #{request_host}:#{request_port}".red if options[:verbose]
 				ssl.close if ssl
 				connection.close if connection
 				Thread.exit
 			end
 
 		else
+		
+			# TODO #
 			# GET, POST, PUT, DELETE, PATCH, ETC
 			
 		end

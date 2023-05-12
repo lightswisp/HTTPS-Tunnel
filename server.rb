@@ -1,10 +1,12 @@
 #!/usr/bin/ruby
 require 'socket'
 require 'openssl'
+require 'thread'
 require 'colorize'
 require 'timeout'
+require 'optparse'
 
-PORT = 443
+PORT = 443 # Don't change this, because this server imitates the real https server
 SERVER_NAME = "Rubinius_1.0.16/(#{RUBY_VERSION})/(#{OpenSSL::OPENSSL_VERSION})"
 CONN_OK = "HTTP/1.1 200 Established\r\nDate: #{Time.now}\r\nServer: #{SERVER_NAME}\r\n\r\n"
 CONN_FAIL = "HTTP/1.1 502 Bad Gateway\r\nDate: #{Time.now}\r\nServer: #{SERVER_NAME}\r\n\r\n"
@@ -27,19 +29,57 @@ SSL = {
          :SSLCiphers=>nil,                                
          :SSLStartImmediately=>true,                      
          :SSLCertName=>nil,   
-         :SSLVer=>OpenSSL::SSL::TLS1_3_VERSION
+         :SSLVer=>OpenSSL::SSL::TLS1_3_VERSION 
 }
 
-socket = TCPServer.new(PORT)
-puts "Listening on #{PORT}"
 
-sslContext 								= OpenSSL::SSL::SSLContext.new()
-sslContext.cert                         = OpenSSL::X509::Certificate.new(File.open("certificate.crt"))
-sslContext.key                          = OpenSSL::PKey::RSA.new(File.open("private.key"))
-sslContext.verify_mode                  = SSL[:SSLVerifyClient]
-sslContext.verify_depth                 = SSL[:SSLVerifyDepth]
-sslContext.timeout                      = SSL[:SSLTimeout]
-sslContext.min_version                  = SSL[:SSLVer] # *IMPORTANT* TLS_1.3 
+options = {}
+OptionParser.new do |opts|
+	opts.banner = "TLS Tunnel Server\n\n".bold + "Usage: ./server.rb [options]"
+		opts.on("-v", "--verbose", "Run verbosely") do |v|
+		options[:verbose] = v
+	end
+
+	opts.on("-h", "--help", "Prints help") do
+		puts opts
+		exit
+	end
+
+	opts.on("-cCERT", "--certificate=CERT", "SSL Certificate, example: ./server.rb --certificate certificate.crt --key private.key") do |cert|
+		options[:cert] = cert
+	end
+	opts.on("-kKEY", "--key=KEY", "Private key, example: ./server.rb --certificate certificate.crt --key private.key") do |key|
+		options[:key] = key
+	end
+
+end.parse!
+
+if Process.uid != 0
+	puts "You must run it as root!".red
+	exit
+end
+
+if !options[:cert] || !options[:key]
+	puts "Please provide your ssl certificate and private key, example: ./server.rb --certificate certificate.crt --key private.key".red
+	exit
+end
+
+if !File.exist?(options[:cert]) || !File.exist?(options[:key])
+	puts "SSL Certificate or private key not found! Please double check your local directory".red
+	exit
+end
+
+
+socket = TCPServer.new(PORT)
+puts "Listening on #{PORT}".bold
+
+sslContext 					= OpenSSL::SSL::SSLContext.new()
+sslContext.cert             = OpenSSL::X509::Certificate.new(File.open(options[:cert]))
+sslContext.key              = OpenSSL::PKey::RSA.new(File.open(options[:key]))
+sslContext.verify_mode      = SSL[:SSLVerifyClient]
+sslContext.verify_depth     = SSL[:SSLVerifyDepth]
+sslContext.timeout          = SSL[:SSLTimeout]
+sslContext.min_version      = SSL[:SSLVer] # *IMPORTANT* TLS_1.3 
 
 
 def handle_client(connection)
@@ -49,14 +89,14 @@ def handle_client(connection)
 	        response = "HTTP/1.1 200 OK\r\nServer: #{SERVER_NAME}\r\nContent-Type: text/html\r\n\r\n#{File.read('index.html')}"
 	        connection.puts(response)
 	        connection.close
-	        puts "[LOGS] Webpage is shown, closing the connection...".green
+	        puts "[LOGS] Webpage is shown, closing the connection...".green if options[:verbose]
 	        Thread.exit
         end
         begin
 	        endpoint_host = address.split(":")[0]
 	        endpoint_port = address.split(":")[1].to_i
         rescue
-	        puts "[WARNING] Client doesn't know how to communicate with us!"
+	        puts "[WARNING] Client doesn't know how to communicate with us!" if options[:verbose]
 	        connection.close if connection
 	        Thread.exit
         end
@@ -85,7 +125,7 @@ def handle_client(connection)
 				end
 			end
 		rescue
-			puts "[*] Closing connection with #{endpoint_host}:#{endpoint_port}".red
+			puts "[*] Closing connection with #{endpoint_host}:#{endpoint_port}".red if options[:verbose]
 			endpoint_connection.close() if endpoint_connection
 			connection.close() if connection
 			Thread.exit
@@ -106,11 +146,11 @@ loop do
 			  handle_client(tls_connection) if tls_connection
 			end
 		rescue Timeout::Error
-			if connection && state == "PINIT"
+			if connection && state == "PINIT" if options[:verbose]
 			  connection.close                
 			end
 		rescue => e
-			puts "[ERROR] #{e}".red
+			puts "[ERROR] #{e}".red if options[:verbose]
 			connection.close if connection
 		end
 
