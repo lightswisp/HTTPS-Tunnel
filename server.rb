@@ -146,7 +146,7 @@ loop do
 			  handle_client(tls_connection) if tls_connection
 			end
 		rescue Timeout::Error
-			if connection && state == "PINIT" if options[:verbose]
+			if connection && state == "PINIT" 
 			  connection.close                
 			end
 		rescue => e
