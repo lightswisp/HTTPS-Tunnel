@@ -65,8 +65,8 @@ def connect(host, port)
 	return ssl
 end
 
-def is_alive?(ssl, request_host, request_port)
-	ssl.puts("#{request_host}:#{request_port}")
+def is_alive?(ssl, payload)
+	ssl.puts(payload)
 	begin
 	  response = ssl.readpartial(MAX_BUFFER) 
 	rescue
@@ -91,7 +91,7 @@ loop do
 			ssl = connect(SERVER_HOST, SERVER_PORT)
 			Thread.exit if !ssl
 			request_host, request_port = request_head.first.split(" ")[1].split(":")
-			if header = is_alive?(ssl, request_host, request_port)
+			if header = is_alive?(ssl, request)
 				puts "[CONNECT] #{request_host}:#{request_port}".green if options[:verbose]
 				connection.puts(header)
 			else
@@ -124,10 +124,21 @@ loop do
 			end
 
 		else
-		
-			# TODO #
-			# GET, POST, PUT, DELETE, PATCH, ETC
+			# GET POST PUT POST PATCH DELETE ETC#
+			ssl = connect(SERVER_HOST, SERVER_PORT)
+			Thread.exit if !ssl
+
+			method = request.split("\n")[0]
+			host = request.split("\n")[1].downcase.gsub("host:", "").strip
+            request_host, request_port = host.split(":")
+            request_port = 80 if request_port.nil?
+            request_port = request_port.to_i
+            puts "[NON-CONNECT] #{method}".green if options[:verbose]
 			
+			ssl.puts(request)
+			response = ssl.readpartial(MAX_BUFFER)
+			connection.puts(response)
+			connection.close
 		end
 			
 	}
