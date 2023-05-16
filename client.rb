@@ -149,9 +149,9 @@ loop do
 			begin
 				response = ssl.readpartial(MAX_BUFFER)
 				connection.puts(response)
-				puts "[NON-CONNECT] #{request_host}:#{request_port}".green
+				puts "[NON-CONNECT] #{request_host}:#{request_port}".green if options[:verbose]
 			rescue
-				puts "[NON-CONNECT] #{request_host}:#{request_port}".red
+				puts "[NON-CONNECT] #{request_host}:#{request_port}".red if options[:verbose]
 			ensure
 				connection.close
 			end
