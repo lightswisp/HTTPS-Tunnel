@@ -24,6 +24,9 @@ OptionParser.new do |opts|
 		options[:addr] = addr
 	end
 
+	opts.on("-fKEY", "--auth-keyfile=KEY", "TLS Tunnel Server authorization key file, example: ./client.rb --auth-keyfile auth_key.txt") do |auth_key|
+		options[:auth_key] = auth_key
+	end
 
 	opts.on("-pPORT", "--port=PORT", "Local port for listening, example: ./client.rb --address example.com --port 8080") do |port|
 		options[:port] = port
@@ -36,8 +39,13 @@ OptionParser.new do |opts|
 
 end.parse!
 
-if !options[:addr] || !options[:port] 
-	puts "Please include the server address and local port for listening, example: ./client.rb --address/-a example.com --port/-p 8080".red
+if !options[:addr] || !options[:port] || !options[:auth_key]
+	puts "Please include the server address, authorization key and local port for listening!\nExample: ./client.rb --address/-a example.com --port/-p 8080 --auth-keyfile/-f auth_key.txt".red
+	exit
+end
+
+if !File.exists?(options[:auth_key])
+	puts "Authentication key file not found!".red
 	exit
 end
 
@@ -47,6 +55,7 @@ SERVER_PORT = 443 							 # Don't change this, because the server we are connect
 SNI_HOST 	= options[:sni] || "example.com" # SNI SPOOFING
 TTL		 	= 10 							 # 10 SEC
 MAX_BUFFER  = 1024 * 640 					 # 640KB
+AUTH_KEY	= File.read(options[:auth_key]).chomp
 
 def connect(host, port)
 	begin
@@ -59,13 +68,14 @@ def connect(host, port)
 		ssl.sync_close = true
 		ssl.connect 
 	rescue
-		puts "TLS Tunnel Server seems to be down".red
+		puts "[WARNING] TLS Tunnel Server seems to be down".red
 		return nil
 	end
 	return ssl
 end
 
 def is_alive?(ssl, payload)
+	payload = payload.gsub("\r\n\r\n", "\r\nAuthorization: #{AUTH_KEY}\r\n\r\n")
 	ssl.puts(payload)
 	begin
 	  response = ssl.readpartial(MAX_BUFFER) 
@@ -77,7 +87,7 @@ end
 
 
 proxy = TCPServer.new(PROXY_PORT)
-puts "Listening on #{PROXY_PORT}".bold
+puts "[#{Time.now}] Listening on #{PROXY_PORT}".bold
 
 loop do
 	connection = proxy.accept
@@ -133,12 +143,18 @@ loop do
             request_host, request_port = host.split(":")
             request_port = 80 if request_port.nil?
             request_port = request_port.to_i
-            puts "[NON-CONNECT] #{method}".green if options[:verbose]
-			
+
+			request = request.gsub("\r\n\r\n", "\r\nAuthorization: #{AUTH_KEY}\r\n\r\n")
 			ssl.puts(request)
-			response = ssl.readpartial(MAX_BUFFER)
-			connection.puts(response)
-			connection.close
+			begin
+				response = ssl.readpartial(MAX_BUFFER)
+				connection.puts(response)
+				puts "[NON-CONNECT] #{request_host}:#{request_port}".green
+			rescue
+				puts "[NON-CONNECT] #{request_host}:#{request_port}".red
+			ensure
+				connection.close
+			end
 		end
 			
 	}

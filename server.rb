@@ -46,6 +46,10 @@ OptionParser.new do |opts|
                 exit
         end
 
+        opts.on("-fKEY", "--auth-keyfile=KEY", "TLS Tunnel Server authorization key file, example: ./server.rb --auth-keyfile auth_key.txt") do |auth_key|
+		OPTIONS[:auth_key] = auth_key
+		end
+
         opts.on("-cCERT", "--certificate=CERT", "SSL Certificate, example: ./server.rb --certificate certificate.crt --key private.key") do |cert|
                 OPTIONS[:cert] = cert
         end
@@ -60,19 +64,19 @@ if Process.uid != 0
         exit
 end
 
-if !OPTIONS[:cert] || !OPTIONS[:key]
-        puts "Please provide your ssl certificate and private key, example: ./server.rb --certificate certificate.crt --key private.key".red
+if !OPTIONS[:cert] || !OPTIONS[:key] || !OPTIONS[:auth_key]
+        puts "Please provide your ssl certificate, authentication key file and private key!\nExample: ./server.rb --certificate/-c certificate.crt --key/-k private.key --auth-keyfile/-f auth_key.txt".red
         exit
 end
 
-if !File.exist?(OPTIONS[:cert]) || !File.exist?(OPTIONS[:key])
-        puts "SSL Certificate or private key not found! Please double check your local directory".red
+if !File.exist?(OPTIONS[:cert]) || !File.exist?(OPTIONS[:key]) || !File.exist?(OPTIONS[:auth_key])
+        puts "SSL Certificate or private key or authentication key not found! Please double check your local directory".red
         exit
 end
 
-
+AUTH_KEY = File.read(OPTIONS[:auth_key]).chomp
 socket = TCPServer.new(PORT)
-puts "Listening on #{PORT}".bold
+puts "[#{Time.now}] Listening on #{PORT}".bold
 
 sslContext                                      = OpenSSL::SSL::SSLContext.new()
 sslContext.cert             = OpenSSL::X509::Certificate.new(File.open(OPTIONS[:cert]))
@@ -87,17 +91,32 @@ def handle_client(connection)
         puts "[*] New connection #{connection.peeraddr[-1]}:#{connection.peeraddr[1]}" if OPTIONS[:verbose]
         request = connection.readpartial(MAX_BUFFER)
 
-                if(request.nil? || request.empty?)
-	                puts "[WARNING] Empty request!" if OPTIONS[:verbose]
-	                connection.close if connection
-	                Thread.exit
-                end
-
+		if(request.nil? || request.empty?)
+			puts "[WARNING] Empty request!" if OPTIONS[:verbose]
+			connection.close if connection
+			Thread.exit
+		end
+		
+		request_split = request.split("\r\n")
 
                 if(request.match?(/CONNECT/))
 
-	                request_head = request.split("\r\n")
-	                endpoint_host, endpoint_port = request_head.first.split(" ")[1].split(":")
+	                auth_header = request_split.find{|h| h.match(/Authorization/)}
+					if !auth_header
+					  puts "[WARNING] Unauthorized attempt detected (no header provided)!".red
+	                  connection.close
+	                  Thread.exit
+					end
+					if auth_header
+					  auth_key = auth_header.downcase.gsub("authorization:", "").strip
+					  if auth_key != AUTH_KEY
+					  	puts "[WARNING] Unauthorized attempt detected (wrong auth key)!".red
+						connection.close
+						Thread.exit
+					  end
+					end
+	                
+	                endpoint_host, endpoint_port =  request_split.first.split(" ")[1].split(":")
 	                puts "#{endpoint_host}:#{endpoint_port}".green if OPTIONS[:verbose]
 	                endpoint_connection = TCPSocket.new(endpoint_host, endpoint_port)
 	                endpoint_connection.setsockopt(Socket::SOL_SOCKET, Socket::SO_KEEPALIVE, true) 
@@ -129,9 +148,8 @@ def handle_client(connection)
                      end
 
                 else
-
 	               ## GET POST PUT PATCH DELETE ##
-	               host = request.split("\n")[1].downcase.gsub("host:", "").strip
+	               host = request_split[1].downcase.gsub("host:", "").strip
 	               endpoint_host, endpoint_port = host.split(":")
 	               endpoint_port = 80 if endpoint_port.nil?
 	               endpoint_port = endpoint_port.to_i
@@ -143,6 +161,21 @@ def handle_client(connection)
 		                puts "[LOGS] Webpage is shown, closing the connection...".green if OPTIONS[:verbose]
 		                Thread.exit
 	                end
+
+	             	auth_header = request_split.find{|h| h.match(/Authorization/)}
+					if !auth_header
+					  puts "[WARNING] Unauthorized attempt detected (no header provided)!".red
+	                  connection.close
+	                  Thread.exit
+					end
+				    if auth_header
+					  auth_key = auth_header.downcase.gsub("authorization:", "").strip
+					  if auth_key != AUTH_KEY
+					  	puts "[WARNING] Unauthorized attempt detected (wrong auth key)!".red
+						connection.close
+						Thread.exit
+					  end
+					end
 
 	               begin
 	               		endpoint_connection = TCPSocket.new(endpoint_host, endpoint_port)
