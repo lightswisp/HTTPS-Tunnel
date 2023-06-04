@@ -44,7 +44,7 @@ if !options[:addr] || !options[:port] || !options[:auth_key]
 	exit
 end
 
-if !File.exists?(options[:auth_key])
+if !File.exist?(options[:auth_key])
 	puts "Authentication key file not found!".red
 	exit
 end
