@@ -1,3 +1,4 @@
 *.crt
 *.key
 auth_key
+auth.key
